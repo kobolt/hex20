@@ -53,3 +53,11 @@ Screenshot of the 120x32 pixel LCD emulation:
 #####       ####  #   #  ###   ###   ###
 ```
 
+Information on my blog:
+* [Epson HX-20 Emulator](https://kobolt.github.io/article-203.html)
+
+YouTube videos:
+* [Pick a Match](https://www.youtube.com/watch?v=dpQw2QPLM_Q)
+* [Minesweeper](https://www.youtube.com/watch?v=atJrgReYC5I)
+* [Artillery](https://www.youtube.com/watch?v=u1FT2iOwCAQ)
+
