@@ -1,9 +1,10 @@
-CFLAGS=-Wall -Wextra -lncurses
+CFLAGS=-Wall -Wextra
+LDFLAGS=-lncurses -lSDL2 -lm
 
 all: hex20
 
-hex20: main.o hd6301.o mem.o console.o rs232.o debugger.o crc32.o
-	gcc -o hex20 $^ ${CFLAGS}
+hex20: main.o hd6301.o mem.o console.o rs232.o piezo.o debugger.o crc32.o
+	gcc -o hex20 $^ ${LDFLAGS}
 
 main.o: main.c
 	gcc -c $^ ${CFLAGS}
@@ -18,6 +19,9 @@ console.o: console.c
 	gcc -c $^ ${CFLAGS}
 
 rs232.o: rs232.c
+	gcc -c $^ ${CFLAGS}
+
+piezo.o: piezo.c
 	gcc -c $^ ${CFLAGS}
 
 debugger.o: debugger.c

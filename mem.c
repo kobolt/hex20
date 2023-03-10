@@ -100,6 +100,12 @@ uint8_t mem_read(mem_t *mem, uint16_t address)
   }
   if (address >= MASTER_RTC_SECONDS && address <= MASTER_RTC_YEAR) {
     return rtc_value(mem, address);
+
+  } else if (address == MASTER_IO_LCD_DATA) {
+    /* Accessing this address clocks the SCK signal to the LCD. */
+    console_lcd_clock();
+    return 0;
+
   } else {
     return mem->ram[address];
   }

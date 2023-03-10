@@ -30,5 +30,6 @@ void console_execute(hd6301_t *cpu, mem_t *mem);
 
 void console_lcd_select(uint8_t value);
 void console_lcd_data(uint8_t value);
+void console_lcd_clock(void);
 
 #endif /* _CONSOLE_H */

@@ -13,6 +13,7 @@
 #include "mem.h"
 #include "console.h"
 #include "rs232.h"
+#include "piezo.h"
 #include "crc32.h"
 #include "debugger.h"
 #include "panic.h"
@@ -117,6 +118,7 @@ static void display_help(const char *progname)
     "  -c LANG    Use LANG character set.\n"
     "  -r DIR     Load ROMs from DIR instead of current directory.\n"
     "  -e         Activate extra 16K RAM expansion.\n"
+    "  -a         Disable piezo speaker audio.\n"
     "\n");
   fprintf(stdout,
     "Specify a BASIC program text file to load it automatically.\n"
@@ -143,6 +145,7 @@ int main(int argc, char *argv[])
   FILE *autoload_fh = NULL;
   char *rom_directory = NULL;
   bool ram_expansion = false;
+  bool disable_audio = false;
 
   const char *autoload_cmd = "RUN";
   unsigned int autoload_cmd_index = 0;
@@ -151,7 +154,7 @@ int main(int argc, char *argv[])
   console_mode_t console_mode = CONSOLE_MODE_CURSES_PIXEL;
   console_charset_t console_charset = CONSOLE_CHARSET_US;
 
-  while ((c = getopt(argc, argv, "hbwem:c:r:")) != -1) {
+  while ((c = getopt(argc, argv, "hbwaem:c:r:")) != -1) {
     switch (c) {
     case 'h':
       display_help(argv[0]);
@@ -171,6 +174,10 @@ int main(int argc, char *argv[])
 
     case 'e':
       ram_expansion = true;
+      break;
+
+    case 'a':
+      disable_audio = true;
       break;
 
     case 'c':
@@ -221,6 +228,13 @@ int main(int argc, char *argv[])
   hd6301_trace_init();
   debugger_init();
   signal(SIGINT, sig_handler);
+
+  if (! disable_audio) {
+    if (piezo_init() != 0) {
+      fprintf(stdout, "Piezo speaker initialization failed!\n");
+      return EXIT_FAILURE;
+    }
+  }
 
   if (ram_expansion) {
     mem_init(&master_mem, &master_mcu, MEM_RAM_MAX_EXPANSION);
@@ -301,6 +315,7 @@ int main(int argc, char *argv[])
     }
 
     rs232_execute(&slave_mcu, &slave_mem);
+    piezo_execute(&slave_mcu, &slave_mem);
     console_execute(&master_mcu, &master_mem);
 
     /* Handle automatic loading and key input: */

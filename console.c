@@ -101,10 +101,13 @@ static uint8_t console_keyboard[8][2]; /* 8 Lines and Gate A & B for each. */
 static int console_lcd_controller = 0;
 static bool console_lcd_command = false;
 static bool console_lcd_cmd64_seen = false;
+static bool console_lcd_cmd63_seen = false;
 static int console_lcd_row = 0;
 static int console_lcd_col = 0;
 static int console_lcd_pixel_col = 0;
 static int console_lcd_pixel_row = 0;
+static int console_lcd_clock_tick = 0;
+static int console_lcd_serial_cycles_left = 0;
 
 
 
@@ -792,6 +795,7 @@ void console_exit(void)
 
   case CONSOLE_MODE_CURSES_ASCII:
   case CONSOLE_MODE_CURSES_PIXEL:
+    curs_set(1); /* Reveal cursor. */
     endwin();
     break;
   }
@@ -815,6 +819,7 @@ int console_init(console_mode_t mode, console_charset_t charset)
     noecho();
     keypad(stdscr, TRUE);
     timeout(0); /* Non-blocking mode. */
+    curs_set(0); /* Hide cursor. */
     break;
 
   default:
@@ -896,6 +901,22 @@ void console_execute(hd6301_t *cpu, mem_t *mem)
     break;
   }
 
+  /* Serial read of LCD data to get pixel at position: */
+  if (console_lcd_serial_cycles_left > 0) {
+    if (console_lcd_clock_tick > 4) {
+      if (console_mode == CONSOLE_MODE_CURSES_PIXEL) {
+        /* Data arrives on the BUSY (a.k.a. SO) pin from the LCD. */
+        if (mvinch(console_lcd_row + (12 - console_lcd_clock_tick),
+          console_lcd_col) == ' ') {
+          mem->ram[MASTER_IO_KRTN_GATE_B] &= ~0x80;
+        } else {
+          mem->ram[MASTER_IO_KRTN_GATE_B] |= 0x80;
+        }
+      }
+    }
+    console_lcd_serial_cycles_left--;
+  }
+
   /* Release the key after a certain amount of cycles: */
   if (cycle > CONSOLE_KEYBOARD_RELEASE) {
     console_keyboard_clear();
@@ -955,6 +976,76 @@ void console_lcd_select(uint8_t value)
 
 
 
+static void console_lcd_update_row_col(uint8_t value)
+{
+  switch (console_lcd_controller) {
+  case 1:
+    if (value < 0xC0) {
+      console_lcd_row = 0;
+      console_lcd_col = value - 0x80;
+    } else {
+      console_lcd_row = 8;
+      console_lcd_col = value - 0xC0;
+    }
+    break;
+
+  case 2:
+    if (value < 0xC0) {
+      console_lcd_row = 0;
+      console_lcd_col = (value - 0x80) + 40;
+    } else {
+      console_lcd_row = 8;
+      console_lcd_col = (value - 0xC0) + 40;
+    }
+    break;
+
+  case 3:
+    if (value < 0xC0) {
+      console_lcd_row = 0;
+      console_lcd_col = (value - 0x80) + 80;
+    } else {
+      console_lcd_row = 8;
+      console_lcd_col = (value - 0xC0) + 80;
+    }
+    break;
+
+  case 4:
+    if (value < 0xC0) {
+      console_lcd_row = 16;
+      console_lcd_col = value - 0x80;
+    } else {
+      console_lcd_row = 24;
+      console_lcd_col = value - 0xC0;
+    }
+    break;
+
+  case 5:
+    if (value < 0xC0) {
+      console_lcd_row = 16;
+      console_lcd_col = (value - 0x80) + 40;
+    } else {
+      console_lcd_row = 24;
+      console_lcd_col = (value - 0xC0) + 40;
+    }
+    break;
+
+  case 6:
+    if (value < 0xC0) {
+      console_lcd_row = 16;
+      console_lcd_col = (value - 0x80) + 80;
+    } else {
+      console_lcd_row = 24;
+      console_lcd_col = (value - 0xC0) + 80;
+    }
+    break;
+
+  default:
+    break;
+  }
+}
+
+
+
 void console_lcd_data(uint8_t value)
 {
   if (console_mode != CONSOLE_MODE_CURSES_PIXEL) {
@@ -965,73 +1056,21 @@ void console_lcd_data(uint8_t value)
     if (value == 0x64) {
       console_lcd_cmd64_seen = true;
 
+    } else if (value == 0x63) {
+      console_lcd_cmd63_seen = true;
+
     } else {
       if (console_lcd_cmd64_seen) {
-        switch (console_lcd_controller) {
-        case 1:
-          if (value < 0xC0) {
-            console_lcd_row = 0;
-            console_lcd_col = value - 0x80;
-          } else {
-            console_lcd_row = 8;
-            console_lcd_col = value - 0xC0;
-          }
-          break;
-
-        case 2:
-          if (value < 0xC0) {
-            console_lcd_row = 0;
-            console_lcd_col = (value - 0x80) + 40;
-          } else {
-            console_lcd_row = 8;
-            console_lcd_col = (value - 0xC0) + 40;
-          }
-          break;
-
-        case 3:
-          if (value < 0xC0) {
-            console_lcd_row = 0;
-            console_lcd_col = (value - 0x80) + 80;
-          } else {
-            console_lcd_row = 8;
-            console_lcd_col = (value - 0xC0) + 80;
-          }
-          break;
-
-        case 4:
-          if (value < 0xC0) {
-            console_lcd_row = 16;
-            console_lcd_col = value - 0x80;
-          } else {
-            console_lcd_row = 24;
-            console_lcd_col = value - 0xC0;
-          }
-          break;
-
-        case 5:
-          if (value < 0xC0) {
-            console_lcd_row = 16;
-            console_lcd_col = (value - 0x80) + 40;
-          } else {
-            console_lcd_row = 24;
-            console_lcd_col = (value - 0xC0) + 40;
-          }
-          break;
-
-        case 6:
-          if (value < 0xC0) {
-            console_lcd_row = 16;
-            console_lcd_col = (value - 0x80) + 80;
-          } else {
-            console_lcd_row = 24;
-            console_lcd_col = (value - 0xC0) + 80;
-          }
-          break;
-
-        default:
-          return;
-        }
+        /* Request to write to LCD. */
+        console_lcd_update_row_col(value);
         console_lcd_cmd64_seen = false;
+
+      } else if (console_lcd_cmd63_seen) {
+        /* Request to read from LCD. */
+        console_lcd_update_row_col(value);
+        console_lcd_serial_cycles_left = 10000;
+        console_lcd_clock_tick = 0;
+        console_lcd_cmd63_seen = false;
 
       } else {
 
@@ -1116,6 +1155,14 @@ void console_lcd_data(uint8_t value)
     }
     console_lcd_col++; /* Automatically incremented for each data package. */
   }
+}
+
+
+
+void console_lcd_clock(void)
+{
+  /* Tick the clock, which is used for serial transfer. */
+  console_lcd_clock_tick++;
 }
 
 

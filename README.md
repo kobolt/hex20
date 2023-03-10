@@ -15,15 +15,15 @@ Features:
 * Using "Ctrl/@" is not needed because the emulator already initializes the necessary data.
 * Debugger with CPU trace and other memory dumping facilities available.
 * RS-232 receive (of a file) is possible at 1200 baud through debugger.
+* Piezo speaker (audio) support through SDL.
 * Needs the 1.0 or 1.1 ROM set for the master CPU and the ROM for the slave CPU to run.
 * CRC32 check on ROM files is performed on startup to ensure correct setup.
 
 Known issues and missing features:
-* No buzzer/sound emulation.
 * No TF-20 floppy emulation.
 * No micro-cassette emulation.
+* No micro-printer emulation.
 * DAA, SWI and SWI CPU instructions are not implemented.
-* POINT() function in BASIC does not work. (Due to missing bi-directional LCD controller communication.)
 * RS-232 has issues with large files and does not support higher 2400/4800 baudrates and handshaking.
 
 Screenshot of the 120x32 pixel LCD emulation:
@@ -53,6 +53,19 @@ Screenshot of the 120x32 pixel LCD emulation:
 #####       ####  #   #  ###   ###   ###
 ```
 
+ROM information and checksums:
+| Filename    | Version | CRC32    | MD5                              |
+|-------------|---------|----------|----------------------------------|
+| basic1.rom  | 1.0     | 33fbb1ab | 6b7541f35820ce50cc375e1fda39dfd9 |
+| basic2.rom  | 1.0     | 27d743ed | ee29f72df2b55f21cfe8dd7fcc4e2e92 |
+| monitor.rom | 1.0     | ed7482c6 | a110e9d42af302fa36fbb2c2edb5fe88 |
+| utility.rom | 1.0     | f5cc8868 | 2e8a5acce5208341f7200277c8d398a5 |
+| basic1.rom  | 1.1     | 4de0b4b6 | 0853e1c34c1183b6c8e0be63a6ed189e |
+| basic2.rom  | 1.1     | 10d6ae76 | 3e1a2d2db6e41f15cb1f65b475f7c05c |
+| monitor.rom | 1.1     | 101cb3e8 | cd18aca262fdb4fa1f5d145e6039c141 |
+| utility.rom | 1.1     | 26c203a1 | 3d46c1cd4bc95ebf3d486499aadfd009 |
+| slave.rom   | N/A     | b36f5b99 | 51053c9c726edeef95d2debba8649f0c |
+
 Information on my blog:
 * [Epson HX-20 Emulator](https://kobolt.github.io/article-203.html)
 
@@ -60,4 +73,5 @@ YouTube videos:
 * [Pick a Match](https://www.youtube.com/watch?v=dpQw2QPLM_Q)
 * [Minesweeper](https://www.youtube.com/watch?v=atJrgReYC5I)
 * [Artillery](https://www.youtube.com/watch?v=u1FT2iOwCAQ)
+* [Attack of the Sine Wave from Outer Space](https://www.youtube.com/watch?v=q-rid6iUhw8)
 
