@@ -68,6 +68,7 @@ ROM information and checksums:
 
 Information on my blog:
 * [Epson HX-20 Emulator](https://kobolt.github.io/article-203.html)
+* [Epson HX-20 Emulator Sound Support](https://kobolt.github.io/article-214.html)
 
 YouTube videos:
 * [Pick a Match](https://www.youtube.com/watch?v=dpQw2QPLM_Q)
