@@ -15,9 +15,12 @@ Features:
 * Using "Ctrl/@" is not needed because the emulator already initializes the necessary data.
 * Debugger with CPU trace and other memory dumping facilities available.
 * RS-232 receive (of a file) is possible at 1200 baud through debugger.
-* Piezo speaker (audio) support through SDL.
-* Needs the 1.0 or 1.1 ROM set for the master CPU and the ROM for the slave CPU to run.
-* CRC32 check on ROM files is performed on startup to ensure correct setup.
+* Piezo speaker (audio) support through SDL2.
+* External cassette emulation by reading or writing (Mono 8-bit 44100Hz) WAV files.
+* Needs the 1.0 or 1.1 system ROM set for the master CPU and the ROM for the slave CPU to run.
+* CRC32 check on system ROM files is performed on startup to ensure correct setup.
+* Loading of a option ROM at address 0x6000 is also possible.
+* Loading of S-records into the MONITOR to set memory through automatic key input.
 
 Known issues and missing features:
 * No TF-20 floppy emulation.
@@ -25,6 +28,11 @@ Known issues and missing features:
 * No micro-printer emulation.
 * DAA, SWI and SWI CPU instructions are not implemented.
 * RS-232 has issues with large files and does not support higher 2400/4800 baudrates and handshaking.
+
+Tips:
+* Use Ctrl+C to enter the debugger, then enter the 'q' command to quit the emulator.
+* F9 is mapped to the "BREAK" key, used to break running BASIC programs.
+* F8 is mapped to the "MENU" key, to get back to the HX-20 main menu.
 
 Screenshot of the 120x32 pixel LCD emulation:
 ```
@@ -69,6 +77,7 @@ ROM information and checksums:
 Information on my blog:
 * [Epson HX-20 Emulator](https://kobolt.github.io/article-203.html)
 * [Epson HX-20 Emulator Sound Support](https://kobolt.github.io/article-214.html)
+* [Epson HX-20 Emulator External Cassette Support](https://kobolt.github.io/article-218.html)
 
 YouTube videos:
 * [Pick a Match](https://www.youtube.com/watch?v=dpQw2QPLM_Q)

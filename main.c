@@ -14,6 +14,7 @@
 #include "console.h"
 #include "rs232.h"
 #include "piezo.h"
+#include "cassette.h"
 #include "crc32.h"
 #include "debugger.h"
 #include "panic.h"
@@ -36,13 +37,17 @@
 #define MONITOR_11_CRC32 0x101cb3e8
 #define SLAVE_CRC32      0xb36f5b99
 
+#define SREC_LINE_MAX 128
+
 
 
 typedef enum {
-  AUTOLOAD_NONE = 0,
-  AUTOLOAD_FILE = 1,
-  AUTOLOAD_CMD  = 2,
-  AUTOLOAD_END  = 3,
+  AUTOLOAD_NONE,
+  AUTOLOAD_BASIC_FILE,
+  AUTOLOAD_BASIC_RUN,
+  AUTOLOAD_SREC_NEXT,
+  AUTOLOAD_SREC_LINE,
+  AUTOLOAD_END,
 } autoload_t;
 
 
@@ -94,35 +99,96 @@ static void rom_load(const char *directory, mem_t *mem,
 
   snprintf(path, PATH_MAX, "%s/%s", (directory) ? directory : ".", filename);
   if (mem_load_from_file(mem, path, address) != 0) {
-    fprintf(stdout, "Loading of ROM '%s' at 0x%04x failed!\n", path, address);
+    fprintf(stdout, "Loading of system ROM '%s' at 0x%04x failed!\n",
+      path, address);
     exit(EXIT_FAILURE);
   }
 
   crc = crc32(&mem->ram[address], size);
   if (! (crc == crc1 || crc == crc2)) {
-    fprintf(stdout, "ROM '%s' has invalid CRC32: %08x\n", filename, crc);
+    fprintf(stdout, "System ROM '%s' has invalid CRC32: %08x\n",
+      filename, crc);
     exit(EXIT_FAILURE);
   }
 }
 
 
 
+static bool autoload_srec_line_from_file(FILE *fh, char *out_line)
+{
+  int i;
+  int n;
+  char in_line[SREC_LINE_MAX];
+  uint8_t byte_count;
+
+  while (fgets(in_line, SREC_LINE_MAX, fh) != NULL) {
+    if (in_line[0] != 'S') {
+      continue; /* Line must start with 'S'. */
+    }
+
+    if (in_line[1] != '1') {
+      continue; /* Only 16-bit load address supported. */
+    }
+
+    if (sscanf(&in_line[2], "%02hhX", &byte_count) != 1) {
+      continue; /* Unable to read byte count. */
+    }
+
+    /* Prepare MONITOR set command: */
+    out_line[0] = 'S';
+    out_line[1] = in_line[4];
+    out_line[2] = in_line[5];
+    out_line[3] = in_line[6];
+    out_line[4] = in_line[7];
+    out_line[5] = '\r';
+
+    /* Copy data bytes: */
+    for (i = 8, n = 6; i < (byte_count * 2) + 2; i += 2, n += 3) {
+      if (n+2 > SREC_LINE_MAX) {
+        continue; /* Overflow! */
+      }
+      out_line[n]   = in_line[i];
+      out_line[n+1] = in_line[i+1];
+      out_line[n+2] = '\r';
+    }
+
+    /* Termination: */
+    if (n+2 > SREC_LINE_MAX) {
+      continue; /* Overflow! */
+    }
+    out_line[n]   = '.';
+    out_line[n+1] = '\r';
+    out_line[n+2] = '\0';
+
+    return true;
+  }
+
+  return false; /* EOF */
+}
+
+
+
 static void display_help(const char *progname)
 {
-  fprintf(stdout, "Usage: %s <options> [BASIC text program]\n", progname);
+  fprintf(stdout, "Usage: %s <options> [file]\n", progname);
   fprintf(stdout, "Options:\n"
     "  -h         Display this help.\n"
     "  -b         Break into debugger on start.\n"
     "  -w         Warp (full speed) mode.\n"
     "  -m MODE    Set MODE for console.\n"
     "  -c LANG    Use LANG character set.\n"
-    "  -r DIR     Load ROMs from DIR instead of current directory.\n"
+    "  -r DIR     Load system ROMs from DIR instead of current directory.\n"
     "  -e         Activate extra 16K RAM expansion.\n"
+    "  -o ROM     Load option ROM into address 0x6000.\n"
+    "  -s         Load file as S-record into MONITOR.\n"
+#ifdef PIEZO_AUDIO_ENABLE
     "  -a         Disable piezo speaker audio.\n"
+#endif
     "\n");
   fprintf(stdout,
     "Specify a BASIC program text file to load it automatically.\n"
-    "This happens by injecting the characters through auto key loading.\n\n");
+    "This happens by injecting the characters through auto key loading.\n"
+    "Use -s to load the file as an S-record into the MONITOR instead.\n\n");
   fprintf(stdout, "Console modes:\n"
     "  %d   None/Disable.\n"
     "  %d   Curses with ASCII. (20x4)\n"
@@ -144,17 +210,23 @@ int main(int argc, char *argv[])
   char *charset_select = NULL;
   FILE *autoload_fh = NULL;
   char *rom_directory = NULL;
+  char *option_rom = NULL;
   bool ram_expansion = false;
+  bool autoload_srec = false;
+#ifdef PIEZO_AUDIO_ENABLE
   bool disable_audio = false;
+#endif
 
-  const char *autoload_cmd = "RUN";
-  unsigned int autoload_cmd_index = 0;
+  const char *autoload_basic_run = "RUN";
+  unsigned int autoload_basic_run_index = 0;
+  char autoload_srec_line[SREC_LINE_MAX];
+  unsigned int autoload_srec_line_index = 0;
   autoload_t autoload = AUTOLOAD_NONE;
 
   console_mode_t console_mode = CONSOLE_MODE_CURSES_PIXEL;
   console_charset_t console_charset = CONSOLE_CHARSET_US;
 
-  while ((c = getopt(argc, argv, "hbwaem:c:r:")) != -1) {
+  while ((c = getopt(argc, argv, "hbwaesm:c:r:o:")) != -1) {
     switch (c) {
     case 'h':
       display_help(argv[0]);
@@ -176,8 +248,14 @@ int main(int argc, char *argv[])
       ram_expansion = true;
       break;
 
+    case 's':
+      autoload_srec = true;
+      break;
+
     case 'a':
+#ifdef PIEZO_AUDIO_ENABLE
       disable_audio = true;
+#endif
       break;
 
     case 'c':
@@ -188,6 +266,10 @@ int main(int argc, char *argv[])
       rom_directory = optarg;
       break;
 
+    case 'o':
+      option_rom = optarg;
+      break;
+
     case '?':
     default:
       display_help(argv[0]);
@@ -195,14 +277,18 @@ int main(int argc, char *argv[])
     }
   }
 
-  /* Autoload BASIC text program if specified: */
+  /* Autoload program if specified: */
   if (argc > optind) {
     autoload_fh = fopen(argv[optind], "r");
     if (autoload_fh == NULL) {
       fprintf(stdout, "Failed to open '%s' for reading!\n", argv[optind]);
       return EXIT_FAILURE;
     }
-    autoload = AUTOLOAD_FILE;
+    if (autoload_srec) {
+      autoload = AUTOLOAD_SREC_NEXT;
+    } else {
+      autoload = AUTOLOAD_BASIC_FILE;
+    }
   }
 
   if (charset_select != NULL) {
@@ -229,14 +315,20 @@ int main(int argc, char *argv[])
   debugger_init();
   signal(SIGINT, sig_handler);
 
+#ifdef PIEZO_AUDIO_ENABLE
   if (! disable_audio) {
     if (piezo_init() != 0) {
       fprintf(stdout, "Piezo speaker initialization failed!\n");
       return EXIT_FAILURE;
     }
   }
+#endif
 
   if (ram_expansion) {
+    if (option_rom) {
+      fprintf(stdout, "Option ROM and RAM expansion overlaps!\n");
+      return EXIT_FAILURE;
+    }
     mem_init(&master_mem, &master_mcu, MEM_RAM_MAX_EXPANSION);
   } else {
     mem_init(&master_mem, &master_mcu, MEM_RAM_MAX_DEFAULT);
@@ -265,6 +357,14 @@ int main(int argc, char *argv[])
   rom_load(rom_directory, &slave_mem,  SLAVE_ROM,   0xF000,
     4096, SLAVE_CRC32, 0);
 
+  if (option_rom) {
+    if (mem_load_from_file(&master_mem, option_rom, 0x6000) != 0) {
+      fprintf(stdout, "Loading of option ROM '%s' at 0x6000 failed!\n",
+        option_rom);
+      return EXIT_FAILURE;
+    }
+  }
+
   if (console_init(console_mode, console_charset) != 0) {
     fprintf(stdout, "Console initialization failed!\n");
     return EXIT_FAILURE;
@@ -282,14 +382,21 @@ int main(int argc, char *argv[])
   signal(SIGALRM, sig_handler);
   setitimer(ITIMER_REAL, &new, NULL);
 
-  if (autoload == AUTOLOAD_FILE) {
+  if (autoload == AUTOLOAD_BASIC_FILE || autoload == AUTOLOAD_SREC_NEXT) {
     /* Always enable warp mode for faster loading: */
     warp_mode = true;
+
     /* Set up automatic key input: */
     master_mem.ram[0x165] = 0xA; /* KYISFL */
     master_mem.ram[0x166] = 2;   /* KYISCN */
-    master_mem.ram[0x16F] = '2'; /* KYISTK[0] */
-    /* Key '2' will enter BASIC on startup. */
+
+    if (autoload == AUTOLOAD_BASIC_FILE) {
+      /* Key '2' will enter BASIC on startup. */
+      master_mem.ram[0x16F] = '2'; /* KYISTK[0] */
+    } else if (autoload == AUTOLOAD_SREC_NEXT) {
+      /* Key '1' will enter MONITOR on startup. */
+      master_mem.ram[0x16F] = '1'; /* KYISTK[0] */
+    }
   }
 
   while (1) {
@@ -315,34 +422,63 @@ int main(int argc, char *argv[])
     }
 
     rs232_execute(&slave_mcu, &slave_mem);
+#ifdef PIEZO_AUDIO_ENABLE
     piezo_execute(&slave_mcu, &slave_mem);
+#endif
     console_execute(&master_mcu, &master_mem);
+    cassette_execute(&slave_mcu, &slave_mem);
+
+    /* Connect slave MCU P34 to master MCU P12: */
+    if (slave_mem.ram[HD6301_REG_PORT_3] & 0x10) {
+      master_mem.ram[HD6301_REG_PORT_1] |= 0x04;
+    } else {
+      master_mem.ram[HD6301_REG_PORT_1] &= ~0x04;
+    }
 
     /* Handle automatic loading and key input: */
     if (master_mem.ram[0x167] == 2) {
       switch (autoload) {
-      case AUTOLOAD_FILE:
+      case AUTOLOAD_BASIC_FILE:
         c = fgetc(autoload_fh);
         if (c == EOF) {
           fclose(autoload_fh);
           autoload_fh = NULL;
-          c = autoload_cmd[0];
-          autoload_cmd_index++;
-          if (autoload_cmd_index >= strlen(autoload_cmd)) {
+          c = autoload_basic_run[0];
+          autoload_basic_run_index++;
+          if (autoload_basic_run_index >= strlen(autoload_basic_run)) {
             autoload = AUTOLOAD_END;
           } else {
-            autoload = AUTOLOAD_CMD;
+            autoload = AUTOLOAD_BASIC_RUN;
           }
         }
         master_mem.ram[0x170] = c; /* KYISTK[1] */
         master_mem.ram[0x167] = 1; /* KYISPN */
         break;
 
-      case AUTOLOAD_CMD:
-        c = autoload_cmd[autoload_cmd_index];
-        autoload_cmd_index++;
-        if (autoload_cmd_index >= strlen(autoload_cmd)) {
+      case AUTOLOAD_BASIC_RUN:
+        c = autoload_basic_run[autoload_basic_run_index];
+        autoload_basic_run_index++;
+        if (autoload_basic_run_index >= strlen(autoload_basic_run)) {
           autoload = AUTOLOAD_END;
+        }
+        master_mem.ram[0x170] = c; /* KYISTK[1] */
+        master_mem.ram[0x167] = 1; /* KYISPN */
+        break;
+
+      case AUTOLOAD_SREC_NEXT:
+        if (autoload_srec_line_from_file(autoload_fh, autoload_srec_line)) {
+          autoload_srec_line_index = 0;
+          autoload = AUTOLOAD_SREC_LINE;
+        } else {
+          autoload = AUTOLOAD_END;
+        }
+        break;
+
+      case AUTOLOAD_SREC_LINE:
+        c = autoload_srec_line[autoload_srec_line_index];
+        autoload_srec_line_index++;
+        if (autoload_srec_line_index >= strlen(autoload_srec_line)) {
+          autoload = AUTOLOAD_SREC_NEXT;
         }
         master_mem.ram[0x170] = c; /* KYISTK[1] */
         master_mem.ram[0x167] = 1; /* KYISPN */

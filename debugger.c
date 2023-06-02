@@ -2,14 +2,17 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "hd6301.h"
 #include "mem.h"
 #include "rs232.h"
+#include "cassette.h"
 #include "panic.h"
 
 
 
+#define DEBUGGER_ARGS 2
 #define SCI_TRACE_BUFFER_SIZE 64
 
 typedef struct sci_trace_t {
@@ -204,51 +207,81 @@ void debugger_init(void)
 
 
 
+static void debugger_help(void)
+{
+  fprintf(stdout, "Debugger Commands:\n");
+  fprintf(stdout, "  q        - Quit\n");
+  fprintf(stdout, "  ? | h    - Help\n");
+  fprintf(stdout, "  c        - Continue\n");
+  fprintf(stdout, "  s        - Step\n");
+  fprintf(stdout, "  w        - Warp Mode Toggle\n");
+  fprintf(stdout, "  t        - Master MCU Trace\n");
+  fprintf(stdout, "  r        - Slave MCU Trace\n");
+  fprintf(stdout, "  m        - Master MCU RAM\n");
+  fprintf(stdout, "  n        - Slave MCU RAM\n");
+  fprintf(stdout, "  p        - Master MCU Ports\n");
+  fprintf(stdout, "  o        - Slave MCU Ports\n");
+  fprintf(stdout, "  x        - MCU Internals\n");
+  fprintf(stdout, "  v        - Variables\n");
+  fprintf(stdout, "  u        - SCI Trace\n");
+  fprintf(stdout, "  l <file> - Load file into RS-232\n");
+  fprintf(stdout, "  f <file> - Save file from External Cassette Out\n");
+  fprintf(stdout, "  g <file> - Load file into External Cassette In\n");
+}
+
+
+
 bool debugger(hd6301_t *master_mcu, hd6301_t *slave_mcu,
   mem_t *master_mem, mem_t *slave_mem)
 {
-  char cmd[8];
+  char input[128];
+  char *argv[DEBUGGER_ARGS];
+  int argc;
+  int result;
 
   fprintf(stdout, "\n");
   while (1) {
     fprintf(stdout, "%04x:%04x> ", master_mcu->counter, master_mcu->pc);
 
-    if (fgets(cmd, sizeof(cmd), stdin) == NULL) {
-      exit(EXIT_SUCCESS);
+    if (fgets(input, sizeof(input), stdin) == NULL) {
+      if (feof(stdin)) {
+        exit(EXIT_SUCCESS);
+      }
+      continue;
     }
 
-    switch (cmd[0]) {
-    case '?':
-    case 'h':
-      fprintf(stdout, "Debugger Commands:\n");
-      fprintf(stdout, "  q - Quit\n");
-      fprintf(stdout, "  h - Help\n");
-      fprintf(stdout, "  c - Continue\n");
-      fprintf(stdout, "  s - Step\n");
-      fprintf(stdout, "  w - Warp Mode Toggle\n");
-      fprintf(stdout, "  t - Master MCU Trace\n");
-      fprintf(stdout, "  r - Slave MCU Trace\n");
-      fprintf(stdout, "  m - Master MCU RAM\n");
-      fprintf(stdout, "  n - Slave MCU RAM\n");
-      fprintf(stdout, "  p - Master MCU Ports\n");
-      fprintf(stdout, "  o - Slave MCU Ports\n");
-      fprintf(stdout, "  x - MCU Internals\n");
-      fprintf(stdout, "  v - Variables\n");
-      fprintf(stdout, "  u - SCI Trace\n");
-      fprintf(stdout, "  l - Load 'input.txt' into RS-232\n");
-      break;
+        if ((strlen(input) > 0) && (input[strlen(input) - 1] == '\n')) {
+      input[strlen(input) - 1] = '\0'; /* Strip newline. */
+    }
 
-    case 'q':
+    argv[0] = strtok(input, " ");
+    if (argv[0] == NULL) {
+      continue;
+    }
+
+    for (argc = 1; argc < DEBUGGER_ARGS; argc++) {
+      argv[argc] = strtok(NULL, " ");
+      if (argv[argc] == NULL) {
+        break;
+      }
+    }
+
+    if (strncmp(argv[0], "q", 1) == 0) {
       exit(EXIT_SUCCESS);
-      break;
 
-    case 'c':
+    } else if (strncmp(argv[0], "?", 1) == 0) {
+      debugger_help();
+
+    } else if (strncmp(argv[0], "h", 1) == 0) {
+      debugger_help();
+
+    } else if (strncmp(argv[0], "c", 1) == 0) {
       return false;
 
-    case 's':
+    } else if (strncmp(argv[0], "s", 1) == 0) {
       return true;
 
-    case 'w':
+    } else if (strncmp(argv[0], "w", 1) == 0) {
       if (warp_mode) {
         fprintf(stdout, "Warp Mode: Off\n");
         warp_mode = false;
@@ -256,59 +289,74 @@ bool debugger(hd6301_t *master_mcu, hd6301_t *slave_mcu,
         fprintf(stdout, "Warp Mode: On\n");
         warp_mode = true;
       }
-      break;
 
-    case 't':
+    } else if (strncmp(argv[0], "t", 1) == 0) {
       fprintf(stdout, "Master Trace:\n");
       hd6301_trace_dump(stdout, 0);
-      break;
 
-    case 'r':
+    } else if (strncmp(argv[0], "r", 1) == 0) {
       fprintf(stdout, "Slave Trace:\n");
       hd6301_trace_dump(stdout, 1);
-      break;
 
-    case 'm':
+    } else if (strncmp(argv[0], "m", 1) == 0) {
       fprintf(stdout, "Master RAM:\n");
       mem_dump(stdout, master_mem, 0x0000, 0x7FFF);
-      break;
 
-    case 'n':
+    } else if (strncmp(argv[0], "n", 1) == 0) {
       fprintf(stdout, "Slave RAM:\n");
       mem_dump(stdout, slave_mem, 0x0000, 0x01FF);
-      break;
 
-    case 'p':
+    } else if (strncmp(argv[0], "p", 1) == 0) {
       fprintf(stdout, "Master Ports:\n");
       port_dump(stdout, master_mem);
-      break;
 
-    case 'o':
+    } else if (strncmp(argv[0], "o", 1) == 0) {
       fprintf(stdout, "Slave Ports:\n");
       port_dump(stdout, slave_mem);
-      break;
 
-    case 'x':
+    } else if (strncmp(argv[0], "x", 1) == 0) {
       hd6301_dump(stdout, master_mcu);
       hd6301_dump(stdout, slave_mcu);
-      break;
 
-    case 'v':
+    } else if (strncmp(argv[0], "v", 1) == 0) {
       variable_dump(stdout, master_mem);
-      break;
 
-    case 'u':
+    } else if (strncmp(argv[0], "u", 1) == 0) {
       sci_trace_dump(stdout);
-      break;
 
-    case 'l':
-      if (rs232_transmit_file("input.txt") != 0) {
-        fprintf(stdout, "Failed to transmit file!\n");
+    } else if (strncmp(argv[0], "l", 1) == 0) {
+      if (argc >= 2) {
+        result = rs232_transmit_file(argv[1]);
+        if (result != 0) {
+          fprintf(stdout, "Failed to transmit file! Error Code: %d\n",
+            result);
+        }
+      } else {
+        fprintf(stdout, "Specify filename!\n");
       }
-      break;
 
-    default:
-      continue;
+    } else if (strncmp(argv[0], "f", 1) == 0) {
+      if (argc >= 2) {
+        result = cassette_save_file(argv[1]);
+        if (result != 0) {
+          fprintf(stdout, "Failed to save cassette file! Error Code: %d\n",
+            result);
+        }
+      } else {
+        fprintf(stdout, "Specify filename!\n");
+      }
+
+    } else if (strncmp(argv[0], "g", 1) == 0) {
+      if (argc >= 2) {
+        result = cassette_load_file(argv[1]);
+        if (result != 0) {
+          fprintf(stdout, "Failed to load cassette file! Error Code: %d\n",
+            result);
+        }
+      } else {
+        fprintf(stdout, "Specify filename!\n");
+      }
+
     }
   }
 }

@@ -3165,13 +3165,16 @@ static void hd6301_counter_increment(hd6301_t *cpu, mem_t *mem, int cycles)
 
   /* Output compare: */
   ocr = mem->ram[HD6301_REG_OCR_LOW] + (mem->ram[HD6301_REG_OCR_HIGH] * 0x100);
-  if (cpu->counter >= ocr && ((prev_counter < ocr)
-    || (prev_counter == 0xFFFF && ocr == 0x0000))) { /* Edge case! */
-    mem->ram[HD6301_REG_TCSR] |= (1 << HD6301_TCSR_OCF);
-    /* Generate IRQ if enabled: */
-    if ((mem->ram[HD6301_REG_TCSR] >> HD6301_TCSR_EOCI) & 1) {
-      hd6301_irq(cpu, mem, HD6301_VECTOR_OCF_LOW, HD6301_VECTOR_OCF_HIGH);
+  while (cycles > 0) {
+    if (prev_counter == ocr) {
+      mem->ram[HD6301_REG_TCSR] |= (1 << HD6301_TCSR_OCF);
+      /* Generate IRQ if enabled: */
+      if ((mem->ram[HD6301_REG_TCSR] >> HD6301_TCSR_EOCI) & 1) {
+        hd6301_irq(cpu, mem, HD6301_VECTOR_OCF_LOW, HD6301_VECTOR_OCF_HIGH);
+      }
     }
+    prev_counter++;
+    cycles--;
   }
 }
 

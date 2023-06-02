@@ -1,9 +1,19 @@
+
+OBJECTS=main.o hd6301.o mem.o console.o rs232.o cassette.o debugger.o crc32.o
 CFLAGS=-Wall -Wextra
-LDFLAGS=-lncurses -lSDL2 -lm
+LDFLAGS=-lncurses
+
+# Check for SDL2 and enable Piezo speaker emulation if it exists.
+SDL2_LDFLAGS=$(shell sdl2-config --libs)
+ifneq (${SDL2_LDFLAGS},)
+CFLAGS+=-DPIEZO_AUDIO_ENABLE
+LDFLAGS+=${SDL2_LDFLAGS} -lm
+OBJECTS+=piezo.o
+endif
 
 all: hex20
 
-hex20: main.o hd6301.o mem.o console.o rs232.o piezo.o debugger.o crc32.o
+hex20: ${OBJECTS}
 	gcc -o hex20 $^ ${LDFLAGS}
 
 main.o: main.c
@@ -22,6 +32,9 @@ rs232.o: rs232.c
 	gcc -c $^ ${CFLAGS}
 
 piezo.o: piezo.c
+	gcc -c $^ ${CFLAGS}
+
+cassette.o: cassette.c
 	gcc -c $^ ${CFLAGS}
 
 debugger.o: debugger.c
