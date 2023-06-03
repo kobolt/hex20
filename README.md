@@ -84,4 +84,5 @@ YouTube videos:
 * [Minesweeper](https://www.youtube.com/watch?v=atJrgReYC5I)
 * [Artillery](https://www.youtube.com/watch?v=u1FT2iOwCAQ)
 * [Attack of the Sine Wave from Outer Space](https://www.youtube.com/watch?v=q-rid6iUhw8)
+* [Cassette Data Transfer](https://www.youtube.com/watch?v=No1LgJNcGDE)
 
