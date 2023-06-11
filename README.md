@@ -26,7 +26,7 @@ Known issues and missing features:
 * No TF-20 floppy emulation.
 * No micro-cassette emulation.
 * No micro-printer emulation.
-* DAA, SWI and SWI CPU instructions are not implemented.
+* DAA, SWI and WAI CPU instructions are not implemented.
 * RS-232 has issues with large files and does not support higher 2400/4800 baudrates and handshaking.
 
 Tips:
