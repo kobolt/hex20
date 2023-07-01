@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include "debugger.h"
 #include "hd6301.h"
 #include "mem.h"
 #include "rs232.h"
@@ -13,11 +14,11 @@
 
 
 #define DEBUGGER_ARGS 2
-#define SCI_TRACE_BUFFER_SIZE 64
+#define SCI_TRACE_BUFFER_SIZE 1024
 
 typedef struct sci_trace_t {
   bool used;
-  bool master_to_slave;
+  sci_trace_dir_t dir;
   uint8_t byte;
   uint16_t cycle;
 } sci_trace_t;
@@ -37,24 +38,40 @@ static void sci_trace_init(void)
 
 
 
+static char *sci_trace_dir_text(sci_trace_dir_t dir)
+{
+  switch (dir) {
+  case SCI_TRACE_DIR_MASTER_TO_SLAVE:
+    return "Master  --> Slave";
+  case SCI_TRACE_DIR_SLAVE_TO_MASTER:
+    return "Master <--  Slave";
+  case SCI_TRACE_DIR_MASTER_TO_EXT:
+    return "Master  --> External";
+  case SCI_TRACE_DIR_EXT_TO_MASTER:
+    return "Master <--  External";
+  default:
+    return "???";
+  }
+}
+
+
+
 static void sci_trace_dump(FILE *fh)
 {
   for (int i = sci_trace_buffer_index;
            i < SCI_TRACE_BUFFER_SIZE; i++) {
     if (sci_trace_buffer[i].used) {
-      fprintf(fh, "%04x : Master %c--%c Slave : 0x%02x\n", 
+      fprintf(fh, "%04x : %s : 0x%02x\n",
       sci_trace_buffer[i].cycle,
-      sci_trace_buffer[i].master_to_slave ? ' ' : '<',
-      sci_trace_buffer[i].master_to_slave ? '>' : ' ',
+      sci_trace_dir_text(sci_trace_buffer[i].dir),
       sci_trace_buffer[i].byte);
     }
   }
   for (int i = 0; i < sci_trace_buffer_index; i++) {
     if (sci_trace_buffer[i].used) {
-      fprintf(fh, "%04x : Master %c--%c Slave : 0x%02x\n", 
+      fprintf(fh, "%04x : %s : 0x%02x\n",
       sci_trace_buffer[i].cycle,
-      sci_trace_buffer[i].master_to_slave ? ' ' : '<',
-      sci_trace_buffer[i].master_to_slave ? '>' : ' ',
+      sci_trace_dir_text(sci_trace_buffer[i].dir),
       sci_trace_buffer[i].byte);
     }
   }
@@ -62,11 +79,11 @@ static void sci_trace_dump(FILE *fh)
 
 
 
-void debugger_sci_trace_add(bool master_to_slave,
+void debugger_sci_trace_add(sci_trace_dir_t dir,
   uint8_t byte, uint16_t cycle)
 {
   sci_trace_buffer[sci_trace_buffer_index].used = true;
-  sci_trace_buffer[sci_trace_buffer_index].master_to_slave = master_to_slave;
+  sci_trace_buffer[sci_trace_buffer_index].dir = dir;
   sci_trace_buffer[sci_trace_buffer_index].byte = byte;
   sci_trace_buffer[sci_trace_buffer_index].cycle = cycle;
   sci_trace_buffer_index++;

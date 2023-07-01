@@ -744,7 +744,7 @@ static void op_asrb(hd6301_t *cpu, mem_t *mem)
   (void)mem;
   bool carry;
   uint8_t keep;
-  hd6301_trace(cpu, "asra", NULL);
+  hd6301_trace(cpu, "asrb", NULL);
   carry = cpu->b & 1;
   keep = cpu->b & 0x80;
   cpu->b >>= 1;

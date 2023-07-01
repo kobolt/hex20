@@ -15,6 +15,7 @@
 #include "rs232.h"
 #include "piezo.h"
 #include "cassette.h"
+#include "serial.h"
 #include "crc32.h"
 #include "debugger.h"
 #include "panic.h"
@@ -181,6 +182,7 @@ static void display_help(const char *progname)
     "  -e         Activate extra 16K RAM expansion.\n"
     "  -o ROM     Load option ROM into address 0x6000.\n"
     "  -s         Load file as S-record into MONITOR.\n"
+    "  -t TTY     Use TTY for external 38400 baud high speed serial.\n"
 #ifdef PIEZO_AUDIO_ENABLE
     "  -a         Disable piezo speaker audio.\n"
 #endif
@@ -211,6 +213,7 @@ int main(int argc, char *argv[])
   FILE *autoload_fh = NULL;
   char *rom_directory = NULL;
   char *option_rom = NULL;
+  char *tty_device = NULL;
   bool ram_expansion = false;
   bool autoload_srec = false;
 #ifdef PIEZO_AUDIO_ENABLE
@@ -226,7 +229,7 @@ int main(int argc, char *argv[])
   console_mode_t console_mode = CONSOLE_MODE_CURSES_PIXEL;
   console_charset_t console_charset = CONSOLE_CHARSET_US;
 
-  while ((c = getopt(argc, argv, "hbwaesm:c:r:o:")) != -1) {
+  while ((c = getopt(argc, argv, "hbwaesm:c:r:o:t:")) != -1) {
     switch (c) {
     case 'h':
       display_help(argv[0]);
@@ -268,6 +271,10 @@ int main(int argc, char *argv[])
 
     case 'o':
       option_rom = optarg;
+      break;
+
+    case 't':
+      tty_device = optarg;
       break;
 
     case '?':
@@ -365,6 +372,13 @@ int main(int argc, char *argv[])
     }
   }
 
+  if (tty_device) {
+    if (serial_init(tty_device) != 0) {
+      fprintf(stdout, "Serial initialization failed!\n");
+      return EXIT_FAILURE;
+    }
+  }
+
   if (console_init(console_mode, console_charset) != 0) {
     fprintf(stdout, "Console initialization failed!\n");
     return EXIT_FAILURE;
@@ -403,22 +417,28 @@ int main(int argc, char *argv[])
     hd6301_execute(&master_mcu, &master_mem);
     hd6301_execute(&slave_mcu, &slave_mem);
 
-    /* SCI transfer from master MCU to slave MCU: */
-    if (master_mcu.transmit_shift_register >= 0) {
-      debugger_sci_trace_add(true,
-        master_mcu.transmit_shift_register, master_mcu.counter);
-      hd6301_sci_receive(&slave_mcu, &slave_mem,
-        master_mcu.transmit_shift_register);
-      master_mcu.transmit_shift_register = -1;
-    }
+    if (master_mem.ram[HD6301_REG_PORT_2] & 0x4) {
+      /* SCI transfer from master MCU to slave MCU: */
+      if (master_mcu.transmit_shift_register >= 0) {
+        debugger_sci_trace_add(SCI_TRACE_DIR_MASTER_TO_SLAVE,
+          master_mcu.transmit_shift_register, master_mcu.counter);
+        hd6301_sci_receive(&slave_mcu, &slave_mem,
+          master_mcu.transmit_shift_register);
+        master_mcu.transmit_shift_register = -1;
+      }
 
-    /* SCI transfer from slave MCU to master MCU: */
-    if (slave_mcu.transmit_shift_register >= 0) {
-      debugger_sci_trace_add(false,
-        slave_mcu.transmit_shift_register, master_mcu.counter);
-      hd6301_sci_receive(&master_mcu, &master_mem,
-        slave_mcu.transmit_shift_register);
-      slave_mcu.transmit_shift_register = -1;
+      /* SCI transfer from slave MCU to master MCU: */
+      if (slave_mcu.transmit_shift_register >= 0) {
+        debugger_sci_trace_add(SCI_TRACE_DIR_SLAVE_TO_MASTER,
+          slave_mcu.transmit_shift_register, master_mcu.counter);
+        hd6301_sci_receive(&master_mcu, &master_mem,
+          slave_mcu.transmit_shift_register);
+        slave_mcu.transmit_shift_register = -1;
+      }
+
+    } else {
+      /* SCI from master MCU has been redirected to external: */
+      serial_execute(&master_mcu, &master_mem);
     }
 
     rs232_execute(&slave_mcu, &slave_mem);
