@@ -21,6 +21,7 @@ Features:
 * CRC32 check on system ROM files is performed on startup to ensure correct setup.
 * Loading of a option ROM at address 0x6000 is also possible.
 * Loading of S-records into the MONITOR to set memory through automatic key input.
+* Redirect of "high speed" 38400 baud serial line to real TTY on host.
 
 Known issues and missing features:
 * No TF-20 floppy emulation.
@@ -78,6 +79,7 @@ Information on my blog:
 * [Epson HX-20 Emulator](https://kobolt.github.io/article-203.html)
 * [Epson HX-20 Emulator Sound Support](https://kobolt.github.io/article-214.html)
 * [Epson HX-20 Emulator External Cassette Support](https://kobolt.github.io/article-218.html)
+* [Epson HX-20 Video Player](https://kobolt.github.io/article-220.html)
 
 YouTube videos:
 * [Pick a Match](https://www.youtube.com/watch?v=dpQw2QPLM_Q)
