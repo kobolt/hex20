@@ -241,9 +241,14 @@ static void debugger_help(void)
   fprintf(stdout, "  x        - MCU Internals\n");
   fprintf(stdout, "  v        - Variables\n");
   fprintf(stdout, "  u        - SCI Trace\n");
-  fprintf(stdout, "  l <file> - Load file into RS-232\n");
-  fprintf(stdout, "  f <file> - Save file from External Cassette Out\n");
-  fprintf(stdout, "  g <file> - Load file into External Cassette In\n");
+  fprintf(stdout, "  l <file> - Load file into RS-232               ");
+  fprintf(stdout, " - Prior: LOAD\"COM0:(48N1F)\"\n");
+  fprintf(stdout, "  k <file> - Save file from RS-232               ");
+  fprintf(stdout, " - After: SAVE\"COM0:(68N1F)\",A\n");
+  fprintf(stdout, "  g <file> - Load file into External Cassette In ");
+  fprintf(stdout, " - Prior: LOAD\"CAS1:\"\n");
+  fprintf(stdout, "  f <file> - Save file from External Cassette Out");
+  fprintf(stdout, " - After: SAVE\"CAS1:FILENAME\"\n");
 }
 
 
@@ -343,9 +348,20 @@ bool debugger(hd6301_t *master_mcu, hd6301_t *slave_mcu,
 
     } else if (strncmp(argv[0], "l", 1) == 0) {
       if (argc >= 2) {
-        result = rs232_transmit_file(argv[1]);
+        result = rs232_load_file(argv[1]);
         if (result != 0) {
-          fprintf(stdout, "Failed to transmit file! Error Code: %d\n",
+          fprintf(stdout, "Failed to load file into RS-232! Error Code: %d\n",
+            result);
+        }
+      } else {
+        fprintf(stdout, "Specify filename!\n");
+      }
+
+    } else if (strncmp(argv[0], "k", 1) == 0) {
+      if (argc >= 2) {
+        result = rs232_save_file(argv[1]);
+        if (result != 0) {
+          fprintf(stdout, "Failed to save file from RS-232! Error Code: %d\n",
             result);
         }
       } else {

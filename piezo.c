@@ -57,13 +57,22 @@ static void piezo_callback(void *userdata, Uint8 *stream, int len)
   int16_t sample;
   (void)userdata;
 
+#ifdef F32_AUDIO
+  float *fstream = (float *)stream;
+  for (i = 0; i < len / 4; i++) {
+#else
   for (i = 0; i < len; i++) {
+#endif /* F32_AUDIO */
     sample = 0;
     for (j = 0; j < PIEZO_SAMPLE_FACTOR; j++) {
       sample += piezo_fifo_read();
     }
     sample /= PIEZO_SAMPLE_FACTOR;
+#ifdef F32_AUDIO
+    fstream[i] = (float)sample * (AUDIO_VOLUME / 128.0);
+#else
     stream[i] = (Uint8)(127 + (sample * AUDIO_VOLUME));
+#endif /* F32_AUDIO */
   }
 }
 
@@ -89,7 +98,11 @@ int piezo_init(void)
   atexit(piezo_exit_handler);
 
   desired.freq     = AUDIO_SAMPLE_RATE;
+#ifdef F32_AUDIO
+  desired.format   = AUDIO_F32LSB;
+#else
   desired.format   = AUDIO_U8;
+#endif /* F32_AUDIO */
   desired.channels = 1;
   desired.samples  = 2048;
   desired.userdata = 0;
@@ -100,8 +113,13 @@ int piezo_init(void)
     return -1;
   }
 
+#ifdef F32_AUDIO
+  if (obtained.format != AUDIO_F32LSB) {
+    fprintf(stderr, "Did not get float 32-bit audio format!\n");
+#else
   if (obtained.format != AUDIO_U8) {
     fprintf(stderr, "Did not get unsigned 8-bit audio format!\n");
+#endif /* F32_AUDIO */
     SDL_CloseAudio();
     return -1;
   }

@@ -8,6 +8,9 @@
 #include <sys/time.h>
 #include <strings.h> /* strncasecmp() */
 #include <limits.h> /* PATH_MAX */
+#ifdef WIN32
+#include <windows.h>
+#endif
 
 #include "hd6301.h"
 #include "mem.h"
@@ -67,9 +70,6 @@ static char panic_msg[80];
 static void sig_handler(int sig)
 {
   switch (sig) {
-  case SIGALRM:
-    return; /* Ignore */
-
   case SIGINT:
     debugger_break = true;
     return;
@@ -182,10 +182,12 @@ static void display_help(const char *progname)
     "  -e         Activate extra 16K RAM expansion.\n"
     "  -o ROM     Load option ROM into address 0x6000.\n"
     "  -s         Load file as S-record into MONITOR.\n"
+#ifndef SERIAL_DISABLE
     "  -t TTY     Use TTY for external 38400 baud high speed serial.\n"
+#endif /* SERIAL_DISABLE */
 #ifdef PIEZO_AUDIO_ENABLE
     "  -a         Disable piezo speaker audio.\n"
-#endif
+#endif /* PIEZO_AUDIO_ENABLE */
     "\n");
   fprintf(stdout,
     "Specify a BASIC program text file to load it automatically.\n"
@@ -213,12 +215,14 @@ int main(int argc, char *argv[])
   FILE *autoload_fh = NULL;
   char *rom_directory = NULL;
   char *option_rom = NULL;
+#ifndef SERIAL_DISABLE
   char *tty_device = NULL;
+#endif /* SERIAL_DISABLE */
   bool ram_expansion = false;
   bool autoload_srec = false;
 #ifdef PIEZO_AUDIO_ENABLE
   bool disable_audio = false;
-#endif
+#endif /* PIEZO_AUDIO_ENABLE */
 
   const char *autoload_basic_run = "RUN";
   unsigned int autoload_basic_run_index = 0;
@@ -258,7 +262,7 @@ int main(int argc, char *argv[])
     case 'a':
 #ifdef PIEZO_AUDIO_ENABLE
       disable_audio = true;
-#endif
+#endif /* PIEZO_AUDIO_ENABLE */
       break;
 
     case 'c':
@@ -274,7 +278,9 @@ int main(int argc, char *argv[])
       break;
 
     case 't':
+#ifndef SERIAL_DISABLE
       tty_device = optarg;
+#endif /* SERIAL_DISABLE */
       break;
 
     case '?':
@@ -286,7 +292,7 @@ int main(int argc, char *argv[])
 
   /* Autoload program if specified: */
   if (argc > optind) {
-    autoload_fh = fopen(argv[optind], "r");
+    autoload_fh = fopen(argv[optind], "rb");
     if (autoload_fh == NULL) {
       fprintf(stdout, "Failed to open '%s' for reading!\n", argv[optind]);
       return EXIT_FAILURE;
@@ -372,12 +378,14 @@ int main(int argc, char *argv[])
     }
   }
 
+#ifndef SERIAL_DISABLE
   if (tty_device) {
     if (serial_init(tty_device) != 0) {
       fprintf(stdout, "Serial initialization failed!\n");
       return EXIT_FAILURE;
     }
   }
+#endif /* SERIAL_DISABLE */
 
   if (console_init(console_mode, console_charset) != 0) {
     fprintf(stdout, "Console initialization failed!\n");
@@ -388,6 +396,22 @@ int main(int argc, char *argv[])
   hd6301_reset(&slave_mcu, &slave_mem, 1);
 
   /* Setup timer to relax CPU: */
+#ifdef WIN32
+  HANDLE timer = NULL;
+  LARGE_INTEGER due_time;
+
+  timer = CreateWaitableTimer(NULL, FALSE, NULL);
+  if (timer == NULL) {
+    fprintf(stdout, "CreateWaitableTimer() failed: %lu\n", GetLastError());
+    return EXIT_FAILURE;
+  }
+
+  due_time.QuadPart = -100000;
+  if (SetWaitableTimer(timer, &due_time, 10, NULL, NULL, FALSE) == FALSE) {
+    fprintf(stdout, "SetWaitableTimer() failed: %lu\n", GetLastError());
+    return EXIT_FAILURE;
+  }
+#else
   struct itimerval new;
   new.it_value.tv_sec = 0;
   new.it_value.tv_usec = 13353;
@@ -395,6 +419,7 @@ int main(int argc, char *argv[])
   new.it_interval.tv_usec = 13353;
   signal(SIGALRM, sig_handler);
   setitimer(ITIMER_REAL, &new, NULL);
+#endif /* WIN32 */
 
   if (autoload == AUTOLOAD_BASIC_FILE || autoload == AUTOLOAD_SREC_NEXT) {
     /* Always enable warp mode for faster loading: */
@@ -438,13 +463,15 @@ int main(int argc, char *argv[])
 
     } else {
       /* SCI from master MCU has been redirected to external: */
+#ifndef SERIAL_DISABLE
       serial_execute(&master_mcu, &master_mem);
+#endif /* SERIAL_DISABLE */
     }
 
-    rs232_execute(&slave_mcu, &slave_mem);
+    rs232_execute(&master_mcu, &master_mem, &slave_mcu, &slave_mem);
 #ifdef PIEZO_AUDIO_ENABLE
     piezo_execute(&slave_mcu, &slave_mem);
-#endif
+#endif /* PIEZO_AUDIO_ENABLE */
     console_execute(&master_mcu, &master_mem);
     cassette_execute(&slave_mcu, &slave_mem);
 
@@ -534,11 +561,18 @@ int main(int argc, char *argv[])
     if (! warp_mode) {
       if (master_mcu.sync_counter > 8192) {
         master_mcu.sync_counter = 0;
+#ifdef WIN32
+        if (WaitForSingleObject(timer, INFINITE) != WAIT_OBJECT_0) {
+          fprintf(stdout, "WaitForSingleObject() failed: %lu\n",
+            GetLastError());
+          return EXIT_FAILURE;
+        }
+#else
         pause(); /* Wait for SIGALRM. */
+#endif /* WIN32 */
       }
     }
   }
-
   return EXIT_SUCCESS;
 }
 

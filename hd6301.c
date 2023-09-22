@@ -48,9 +48,11 @@ static void hd6301_trace(hd6301_t *cpu, const char *op_name,
       "PC=%04x ", cpu->pc - 1);
   }
 
-  va_start(args, format);
-  n += vsnprintf(&buffer[n], HD6301_TRACE_BUFFER_ENTRY - n, format, args);
-  va_end(args);
+  if (format != NULL) {
+    va_start(args, format);
+    n += vsnprintf(&buffer[n], HD6301_TRACE_BUFFER_ENTRY - n, format, args);
+    va_end(args);
+  }
 
   n += snprintf(&buffer[n], HD6301_TRACE_BUFFER_ENTRY - n, "\n");
 
@@ -3172,6 +3174,14 @@ static void hd6301_counter_increment(hd6301_t *cpu, mem_t *mem, int cycles)
       if ((mem->ram[HD6301_REG_TCSR] >> HD6301_TCSR_EOCI) & 1) {
         hd6301_irq(cpu, mem, HD6301_VECTOR_OCF_LOW, HD6301_VECTOR_OCF_HIGH);
       }
+
+      /* Set P21 based on OLVL as used by RS232C: */
+      if (mem->ram[HD6301_REG_TCSR] & 1) {
+        mem->ram[HD6301_REG_PORT_2] |= 0x02;
+      } else {
+        mem->ram[HD6301_REG_PORT_2] &= ~0x02;
+      }
+      cpu->p21_set = true;
     }
     prev_counter++;
     cycles--;
@@ -3302,6 +3312,27 @@ void hd6301_register_write(hd6301_t *cpu, mem_t *mem,
     /* HD6301_TRCSR_TDRE not manipulated since this happens instantly. */
     mem->ram[address] = value;
     cpu->transmit_shift_register = value;
+    break;
+
+  case HD6301_REG_PORT_1:
+    /* Filter value based on data direction, don't write to inputs. */
+    mem->ram[HD6301_REG_PORT_1] &= ~mem->ram[HD6301_REG_DDR_1];
+    mem->ram[HD6301_REG_PORT_1] |= value;
+    break;
+
+  case HD6301_REG_PORT_2:
+    mem->ram[HD6301_REG_PORT_2] &= ~mem->ram[HD6301_REG_DDR_2];
+    mem->ram[HD6301_REG_PORT_2] |= value;
+    break;
+
+  case HD6301_REG_PORT_3:
+    mem->ram[HD6301_REG_PORT_3] &= ~mem->ram[HD6301_REG_DDR_3];
+    mem->ram[HD6301_REG_PORT_3] |= value;
+    break;
+
+  case HD6301_REG_PORT_4:
+    mem->ram[HD6301_REG_PORT_4] &= ~mem->ram[HD6301_REG_DDR_4];
+    mem->ram[HD6301_REG_PORT_4] |= value;
     break;
 
   default:

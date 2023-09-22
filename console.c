@@ -633,7 +633,9 @@ static void console_keyboard_set_from_char(int ch)
     console_keyboard_set(SCANCODE_FEED);
     break;
   case KEY_F(12):
-    console_keyboard_set(SCANCODE_PRINTER);
+    /* Issues the "CASSETTE" combo. */
+    console_keyboard_set(SCANCODE_CTRL);
+    console_keyboard_set(SCANCODE_PF1);
     break;
 
   /* Control */
@@ -650,8 +652,12 @@ static void console_keyboard_set_from_char(int ch)
     console_keyboard_set(SCANCODE_B);
     break;
   case 0x03:
+#ifdef MANUAL_BREAK
+    debugger_break = true;
+#else
     console_keyboard_set(SCANCODE_CTRL);
     console_keyboard_set(SCANCODE_C);
+#endif
     break;
   case 0x04:
     console_keyboard_set(SCANCODE_CTRL);

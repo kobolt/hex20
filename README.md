@@ -14,7 +14,8 @@ Features:
 * RTC provided by actual system host clock, so no need to set it.
 * Using "Ctrl/@" is not needed because the emulator already initializes the necessary data.
 * Debugger with CPU trace and other memory dumping facilities available.
-* RS-232 receive (of a file) is possible at 1200 baud through debugger.
+* RS-232 load (of a file) is possible at 1200 baud through debugger.
+* RS-232 save (of a file) is possible at 4800 baud through debugger.
 * Piezo speaker (audio) support through SDL2.
 * External cassette emulation by reading or writing (Mono 8-bit 44100Hz) WAV files.
 * Needs the 1.0 or 1.1 system ROM set for the master CPU and the ROM for the slave CPU to run.
@@ -28,7 +29,7 @@ Known issues and missing features:
 * No micro-cassette emulation.
 * No micro-printer emulation.
 * DAA, SWI and WAI CPU instructions are not implemented.
-* RS-232 has issues with large files and does not support higher 2400/4800 baudrates and handshaking.
+* RS-232 does not emulate handshaking signals and RX is hardcoded to 1200 baud.
 
 Tips:
 * Use Ctrl+C to enter the debugger, then enter the 'q' command to quit the emulator.
@@ -80,6 +81,7 @@ Information on my blog:
 * [Epson HX-20 Emulator Sound Support](https://kobolt.github.io/article-214.html)
 * [Epson HX-20 Emulator External Cassette Support](https://kobolt.github.io/article-218.html)
 * [Epson HX-20 Video Player](https://kobolt.github.io/article-220.html)
+* [Epson HX-20 Emulator MinGW Build](https://kobolt.github.io/article-223.html)
 
 YouTube videos:
 * [Pick a Match](https://www.youtube.com/watch?v=dpQw2QPLM_Q)

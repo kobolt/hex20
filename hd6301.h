@@ -43,6 +43,7 @@ typedef struct hd6301_s {
   bool rdr_flag;
 
   bool p20_prev; /* Previous state of P20 input pin. */
+  bool p21_set; /* To easily track that P21 output pin has changed. */
 
   int transmit_shift_register;
   bool sleep;

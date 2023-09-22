@@ -20,7 +20,6 @@ static uint8_t bcd(uint8_t value)
 
 static uint8_t rtc_value(mem_t *mem, uint16_t address)
 {
-  struct timespec ts;
   struct tm tm;
   bool bcd_mode;
   bool hour_mode;
@@ -28,8 +27,15 @@ static uint8_t rtc_value(mem_t *mem, uint16_t address)
   bcd_mode = (mem->ram[MASTER_RTC_REGISTER_B] >> 2) & 1;
   hour_mode = (mem->ram[MASTER_RTC_REGISTER_B] >> 1) & 1;
 
+#ifdef WIN32
+  time_t now;
+  now = time(NULL);
+  localtime_s(&tm, &now);
+#else
+  struct timespec ts;
   clock_gettime(CLOCK_REALTIME, &ts);
   localtime_r(&ts.tv_sec, &tm);
+#endif /* WIN32 */
 
   switch (address) {
   case MASTER_RTC_SECONDS:
