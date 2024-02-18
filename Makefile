@@ -1,5 +1,5 @@
 
-OBJECTS=main.o hd6301.o mem.o console.o rs232.o cassette.o serial.o debugger.o crc32.o
+OBJECTS=main.o hd6301.o mem.o console.o rs232.o cassette.o serial.o printer.o debugger.o crc32.o
 CFLAGS=-Wall -Wextra
 LDFLAGS=-lncurses
 
@@ -38,6 +38,9 @@ cassette.o: cassette.c
 	gcc -c $^ ${CFLAGS}
 
 serial.o: serial.c
+	gcc -c $^ ${CFLAGS}
+
+printer.o: printer.c
 	gcc -c $^ ${CFLAGS}
 
 debugger.o: debugger.c

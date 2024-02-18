@@ -19,6 +19,7 @@
 #include "piezo.h"
 #include "cassette.h"
 #include "serial.h"
+#include "printer.h"
 #include "crc32.h"
 #include "debugger.h"
 #include "panic.h"
@@ -182,6 +183,7 @@ static void display_help(const char *progname)
     "  -e         Activate extra 16K RAM expansion.\n"
     "  -o ROM     Load option ROM into address 0x6000.\n"
     "  -s         Load file as S-record into MONITOR.\n"
+    "  -p FILE    Enable micro-printer output to FILE.\n"
 #ifndef SERIAL_DISABLE
     "  -t TTY     Use TTY for external 38400 baud high speed serial.\n"
 #endif /* SERIAL_DISABLE */
@@ -215,6 +217,7 @@ int main(int argc, char *argv[])
   FILE *autoload_fh = NULL;
   char *rom_directory = NULL;
   char *option_rom = NULL;
+  char *printer_filename = NULL;
 #ifndef SERIAL_DISABLE
   char *tty_device = NULL;
 #endif /* SERIAL_DISABLE */
@@ -233,7 +236,7 @@ int main(int argc, char *argv[])
   console_mode_t console_mode = CONSOLE_MODE_CURSES_PIXEL;
   console_charset_t console_charset = CONSOLE_CHARSET_US;
 
-  while ((c = getopt(argc, argv, "hbwaesm:c:r:o:t:")) != -1) {
+  while ((c = getopt(argc, argv, "hbwaesm:c:r:o:p:t:")) != -1) {
     switch (c) {
     case 'h':
       display_help(argv[0]);
@@ -275,6 +278,10 @@ int main(int argc, char *argv[])
 
     case 'o':
       option_rom = optarg;
+      break;
+
+    case 'p':
+      printer_filename = optarg;
       break;
 
     case 't':
@@ -378,6 +385,14 @@ int main(int argc, char *argv[])
     }
   }
 
+  if (printer_filename) {
+    if (printer_init(printer_filename) != 0) {
+      fprintf(stdout, "Printer initialization with output to '%s' failed!\n",
+        printer_filename);
+      return EXIT_FAILURE;
+    }
+  }
+
 #ifndef SERIAL_DISABLE
   if (tty_device) {
     if (serial_init(tty_device) != 0) {
@@ -387,7 +402,8 @@ int main(int argc, char *argv[])
   }
 #endif /* SERIAL_DISABLE */
 
-  if (console_init(console_mode, console_charset) != 0) {
+  if (console_init(console_mode, console_charset,
+    printer_filename ? true : false) != 0) {
     fprintf(stdout, "Console initialization failed!\n");
     return EXIT_FAILURE;
   }
@@ -474,6 +490,7 @@ int main(int argc, char *argv[])
 #endif /* PIEZO_AUDIO_ENABLE */
     console_execute(&master_mcu, &master_mem);
     cassette_execute(&slave_mcu, &slave_mem);
+    printer_execute(&slave_mcu, &slave_mem);
 
     /* Connect slave MCU P34 to master MCU P12: */
     if (slave_mem.ram[HD6301_REG_PORT_3] & 0x10) {

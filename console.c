@@ -71,6 +71,7 @@ typedef enum {
   SCANCODE_SPACE        = 0x31,
   SCANCODE_TAB          = 0x32,
   SCANCODE_NUM          = 0x35,
+  SCANCODE_GRPH         = 0x36,
   SCANCODE_CAPS         = 0x37,
   SCANCODE_CLEAR        = 0x38,
   SCANCODE_SCRN         = 0x39,
@@ -95,6 +96,8 @@ typedef enum {
 
 static console_mode_t console_mode = CONSOLE_MODE_NONE;
 static console_charset_t console_charset = CONSOLE_CHARSET_US;
+static bool console_printer_enabled = false;
+static bool console_graphics_key = false;
 
 static uint8_t console_keyboard[8][2]; /* 8 Lines and Gate A & B for each. */
 
@@ -199,6 +202,10 @@ static void console_keyboard_clear(void)
     break;
   case CONSOLE_CHARSET_ES:
     break;
+  }
+
+  if (console_printer_enabled) {
+    console_keyboard_set(SCANCODE_PRINTER);
   }
 }
 
@@ -633,9 +640,8 @@ static void console_keyboard_set_from_char(int ch)
     console_keyboard_set(SCANCODE_FEED);
     break;
   case KEY_F(12):
-    /* Issues the "CASSETTE" combo. */
-    console_keyboard_set(SCANCODE_CTRL);
-    console_keyboard_set(SCANCODE_PF1);
+    /* Toggle the 'GRPH' key. */
+    console_graphics_key = !console_graphics_key;
     break;
 
   /* Control */
@@ -759,6 +765,11 @@ static void console_keyboard_set_from_char(int ch)
   default:
     break;
   }
+
+  if (console_graphics_key) {
+    console_keyboard_set(SCANCODE_GRPH);
+    console_keyboard[5][GATE_B] |= ~0xFD; /* Clear SHIFT for convenience. */
+  }
 }
 
 
@@ -809,10 +820,12 @@ void console_exit(void)
 
 
 
-int console_init(console_mode_t mode, console_charset_t charset)
+int console_init(console_mode_t mode, console_charset_t charset,
+  bool printer_enabled)
 {
   console_mode = mode;
   console_charset = charset;
+  console_printer_enabled = printer_enabled;
 
   switch (console_mode) {
   case CONSOLE_MODE_NONE:

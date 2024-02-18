@@ -3,7 +3,7 @@
 # mingw32-make.exe -f %PDCURSES_SRCDIR%/wincon/Makefile
 # mingw32-make.exe -f Makefile.mingw
 
-OBJECTS=main.o hd6301.o mem.o console.o rs232.o cassette.o debugger.o crc32.o pdcurses.a
+OBJECTS=main.o hd6301.o mem.o console.o rs232.o cassette.o printer.o debugger.o crc32.o pdcurses.a
 CFLAGS=-Wall -Wextra -I../PDCurses-3.9 -DSERIAL_DISABLE -DMANUAL_BREAK
 LDFLAGS=
 
@@ -28,6 +28,9 @@ rs232.o: rs232.c
 	gcc -c $^ ${CFLAGS}
 
 cassette.o: cassette.c
+	gcc -c $^ ${CFLAGS}
+
+printer.o: printer.c
 	gcc -c $^ ${CFLAGS}
 
 debugger.o: debugger.c

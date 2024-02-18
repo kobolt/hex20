@@ -2,6 +2,7 @@
 #define _CONSOLE_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "hd6301.h"
 #include "mem.h"
 
@@ -25,7 +26,8 @@ typedef enum {
 void console_pause(void);
 void console_resume(void);
 void console_exit(void);
-int console_init(console_mode_t mode, console_charset_t);
+int console_init(console_mode_t mode, console_charset_t charset,
+  bool printer_enabled);
 void console_execute(hd6301_t *cpu, mem_t *mem);
 
 void console_lcd_select(uint8_t value);

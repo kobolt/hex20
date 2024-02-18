@@ -23,11 +23,11 @@ Features:
 * Loading of a option ROM at address 0x6000 is also possible.
 * Loading of S-records into the MONITOR to set memory through automatic key input.
 * Redirect of "high speed" 38400 baud serial line to real TTY on host.
+* Micro-printer emulation by printing dots to a specified file.
 
 Known issues and missing features:
 * No TF-20 floppy emulation.
 * No micro-cassette emulation.
-* No micro-printer emulation.
 * DAA, SWI and WAI CPU instructions are not implemented.
 * RS-232 does not emulate handshaking signals and RX is hardcoded to 1200 baud.
 
