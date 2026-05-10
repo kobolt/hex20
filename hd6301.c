@@ -465,7 +465,7 @@ static void op_addd_imm(hd6301_t *cpu, mem_t *mem)
 {
   uint16_t value;
   uint16_t prev;
-  hd6301_trace(cpu, "addb", "#%02x%02x", mem_read(mem, cpu->pc), mem_read(mem, cpu->pc + 1));
+  hd6301_trace(cpu, "addd", "#%02x%02x", mem_read(mem, cpu->pc), mem_read(mem, cpu->pc + 1));
   value = mem_read(mem, cpu->pc++) * 0x100;
   value += mem_read(mem, cpu->pc++);
   prev = cpu->d;
@@ -3155,24 +3155,29 @@ static int opcode_cycles[UINT8_MAX + 1] = {
 
 static void hd6301_counter_increment(hd6301_t *cpu, mem_t *mem, int cycles)
 {
-  uint16_t prev_counter;
   uint16_t ocr;
+  bool pending_tof_irq = false;
+  bool pending_ocf_irq = false;
 
   cpu->sync_counter += cycles;
-
-  prev_counter = cpu->counter;
-  cpu->counter += cycles;
-  mem->ram[HD6301_REG_FRC_HIGH] = cpu->counter / 0x100;
-  mem->ram[HD6301_REG_FRC_LOW]  = cpu->counter % 0x100;
-
-  /* Output compare: */
   ocr = mem->ram[HD6301_REG_OCR_LOW] + (mem->ram[HD6301_REG_OCR_HIGH] * 0x100);
+
   while (cycles > 0) {
-    if (prev_counter == ocr) {
+    /* Timer overflow: */
+    if (cpu->counter == 0) {
+      mem->ram[HD6301_REG_TCSR] |= (1 << HD6301_TCSR_TOF);
+      /* Generate IRQ if enabled: */
+      if ((mem->ram[HD6301_REG_TCSR] >> HD6301_TCSR_ETOI) & 1) {
+        pending_tof_irq = true;
+      }
+    }
+
+    /* Output compare: */
+    if (cpu->counter == ocr) {
       mem->ram[HD6301_REG_TCSR] |= (1 << HD6301_TCSR_OCF);
       /* Generate IRQ if enabled: */
       if ((mem->ram[HD6301_REG_TCSR] >> HD6301_TCSR_EOCI) & 1) {
-        hd6301_irq(cpu, mem, HD6301_VECTOR_OCF_LOW, HD6301_VECTOR_OCF_HIGH);
+        pending_ocf_irq = true;
       }
 
       /* Set P21 based on OLVL as used by RS232C: */
@@ -3183,14 +3188,27 @@ static void hd6301_counter_increment(hd6301_t *cpu, mem_t *mem, int cycles)
       }
       cpu->p21_set = true;
     }
-    prev_counter++;
+
+    cpu->counter++;
     cycles--;
+  }
+
+  /* Free running counter: */
+  mem->ram[HD6301_REG_FRC_HIGH] = cpu->counter / 0x100;
+  mem->ram[HD6301_REG_FRC_LOW]  = cpu->counter % 0x100;
+
+  /* Check of pending IRQs after counters have been updated: */
+  if (pending_tof_irq) {
+    hd6301_irq(cpu, mem, HD6301_VECTOR_TOF_LOW, HD6301_VECTOR_TOF_HIGH);
+  }
+  if (pending_ocf_irq) {
+    hd6301_irq(cpu, mem, HD6301_VECTOR_OCF_LOW, HD6301_VECTOR_OCF_HIGH);
   }
 }
 
 
 
-void hd6301_execute(hd6301_t *cpu, mem_t *mem)
+void hd6301_execute(hd6301_t *cpu, mem_t *mem, int sleep_cycles)
 {
   uint8_t opcode;
 
@@ -3202,7 +3220,7 @@ void hd6301_execute(hd6301_t *cpu, mem_t *mem)
   }
 
   if (cpu->sleep) {
-    hd6301_counter_increment(cpu, mem, 1);
+    hd6301_counter_increment(cpu, mem, sleep_cycles);
     return;
   }
 
@@ -3264,6 +3282,7 @@ void hd6301_reset(hd6301_t *cpu, mem_t *mem, int id)
   cpu->counter = 0;
   cpu->sync_counter = 0;
 
+  cpu->tcsr_tof_flag   = false;
   cpu->tcsr_ocf_flag   = false;
   cpu->tcsr_icf_flag   = false;
   cpu->trcsr_orfe_flag = false;
@@ -3347,8 +3366,16 @@ void hd6301_register_read_notify(hd6301_t *cpu, mem_t *mem, uint16_t address)
 {
   switch (address) {
   case HD6301_REG_TCSR:
+    cpu->tcsr_tof_flag = true;
     cpu->tcsr_ocf_flag = true;
     cpu->tcsr_icf_flag = true;
+    break;
+
+  case HD6301_REG_FRC_HIGH:
+    if (cpu->tcsr_tof_flag) {
+      mem->ram[HD6301_REG_TCSR] &= ~(1 << HD6301_TCSR_TOF);
+      cpu->tcsr_tof_flag = false;
+    }
     break;
 
   case HD6301_REG_ICR_HIGH:
@@ -3386,16 +3413,16 @@ void hd6301_irq(hd6301_t *cpu, mem_t *mem,
       cpu->irq_pending_vector_low  = vector_low;
       cpu->irq_pending_vector_high = vector_high;
       cpu->irq_pending = true;
-      hd6301_trace(cpu, NULL, "IRQ pending %04x:%04x", vector_low, vector_high);
+      hd6301_trace(cpu, NULL, "IRQ pending %04x:%04x", vector_high, vector_low);
       return;
     } else {
       /* ...while others are neglected. */
-      hd6301_trace(cpu, NULL, "IRQ ignored %04x:%04x", vector_low, vector_high);
+      hd6301_trace(cpu, NULL, "IRQ ignored %04x:%04x", vector_high, vector_low);
       return;
     }
   }
 
-  hd6301_trace(cpu, NULL, "IRQ execute %04x:%04x", vector_low, vector_high);
+  hd6301_trace(cpu, NULL, "IRQ execute %04x:%04x", vector_high, vector_low);
 
   mem_write(mem, cpu->sp--, cpu->pc % 0x100);
   mem_write(mem, cpu->sp--, cpu->pc / 0x100);

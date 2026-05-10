@@ -781,6 +781,7 @@ void console_pause(void)
     break;
   case CONSOLE_MODE_CURSES_ASCII:
   case CONSOLE_MODE_CURSES_PIXEL:
+  case CONSOLE_MODE_CURSES_REVERSE:
     endwin();
     timeout(-1);
     break;
@@ -796,6 +797,7 @@ void console_resume(void)
     break;
   case CONSOLE_MODE_CURSES_ASCII:
   case CONSOLE_MODE_CURSES_PIXEL:
+  case CONSOLE_MODE_CURSES_REVERSE:
     timeout(0);
     refresh();
     break;
@@ -812,6 +814,7 @@ void console_exit(void)
 
   case CONSOLE_MODE_CURSES_ASCII:
   case CONSOLE_MODE_CURSES_PIXEL:
+  case CONSOLE_MODE_CURSES_REVERSE:
     curs_set(1); /* Reveal cursor. */
     endwin();
     break;
@@ -833,6 +836,7 @@ int console_init(console_mode_t mode, console_charset_t charset,
 
   case CONSOLE_MODE_CURSES_ASCII:
   case CONSOLE_MODE_CURSES_PIXEL:
+  case CONSOLE_MODE_CURSES_REVERSE:
     initscr();
     atexit(console_exit);
     noecho();
@@ -923,7 +927,8 @@ void console_execute(hd6301_t *cpu, mem_t *mem)
   /* Serial read of LCD data to get pixel at position: */
   if (console_lcd_serial_cycles_left > 0) {
     if (console_lcd_clock_tick > 4) {
-      if (console_mode == CONSOLE_MODE_CURSES_PIXEL) {
+      if (console_mode == CONSOLE_MODE_CURSES_PIXEL ||
+          console_mode == CONSOLE_MODE_CURSES_REVERSE) {
         /* Data arrives on the BUSY (a.k.a. SO) pin from the LCD. */
         if (mvinch(console_lcd_row + (12 - console_lcd_clock_tick),
           console_lcd_col) == ' ') {
@@ -1067,7 +1072,8 @@ static void console_lcd_update_row_col(uint8_t value)
 
 void console_lcd_data(uint8_t value)
 {
-  if (console_mode != CONSOLE_MODE_CURSES_PIXEL) {
+  if (console_mode != CONSOLE_MODE_CURSES_PIXEL &&
+      console_mode != CONSOLE_MODE_CURSES_REVERSE) {
     return;
   }
 
@@ -1100,7 +1106,13 @@ void console_lcd_data(uint8_t value)
             mvaddch(console_lcd_pixel_row, console_lcd_pixel_col, ' ');
           } else if (value >= 0x40 && value <= 0x5C) {
             console_lcd_pixel_row += (value - 0x40) / 4;
-            mvaddch(console_lcd_pixel_row, console_lcd_pixel_col, '%');
+            if (console_mode == CONSOLE_MODE_CURSES_REVERSE) {
+              attron(A_REVERSE);
+              mvaddch(console_lcd_pixel_row, console_lcd_pixel_col, ' ');
+              attroff(A_REVERSE);
+            } else {
+              mvaddch(console_lcd_pixel_row, console_lcd_pixel_col, '%');
+            }
           }
           console_lcd_pixel_col = -1;
 
@@ -1169,8 +1181,18 @@ void console_lcd_data(uint8_t value)
   } else { /* Data */
 
     for (int i = 0; i < 8; i++) {
-      mvaddch(console_lcd_row + i, console_lcd_col,
-        (value >> i) & 1 ? '#' : ' ');
+      if (console_mode == CONSOLE_MODE_CURSES_REVERSE) {
+        if ((value >> i) & 1) {
+          attron(A_REVERSE);
+        }
+        mvaddch(console_lcd_row + i, console_lcd_col, ' ');
+        if ((value >> i) & 1) {
+          attroff(A_REVERSE);
+        }
+      } else {
+        mvaddch(console_lcd_row + i, console_lcd_col,
+          (value >> i) & 1 ? '#' : ' ');
+      }
     }
     console_lcd_col++; /* Automatically incremented for each data package. */
   }

@@ -125,10 +125,10 @@ static void port_dump(FILE *fh, mem_t *mem)
   fprintf(fh, "  TCSR.ICF  : %d\n", (mem->ram[HD6301_REG_TCSR] >> 7) & 1);
 
   /* P3CSR */
-  fprintf(fh, "  P3CSR.LATCH : %d\n", (mem->ram[HD6301_REG_TCSR] >> 3) & 1);
-  fprintf(fh, "  P3CSR.OSS   : %d\n", (mem->ram[HD6301_REG_TCSR] >> 4) & 1);
-  fprintf(fh, "  P3CSR.IS3I  : %d\n", (mem->ram[HD6301_REG_TCSR] >> 6) & 1);
-  fprintf(fh, "  P3CSR.IS3   : %d\n", (mem->ram[HD6301_REG_TCSR] >> 7) & 1);
+  fprintf(fh, "  P3CSR.LATCH : %d\n", (mem->ram[HD6301_REG_P3CSR] >> 3) & 1);
+  fprintf(fh, "  P3CSR.OSS   : %d\n", (mem->ram[HD6301_REG_P3CSR] >> 4) & 1);
+  fprintf(fh, "  P3CSR.IS3I  : %d\n", (mem->ram[HD6301_REG_P3CSR] >> 6) & 1);
+  fprintf(fh, "  P3CSR.IS3   : %d\n", (mem->ram[HD6301_REG_P3CSR] >> 7) & 1);
 
   /* RMCR */
   fprintf(fh, "  RMCR.SS0 : %d\n",  mem->ram[HD6301_REG_RMCR]       & 1);
@@ -272,7 +272,7 @@ bool debugger(hd6301_t *master_mcu, hd6301_t *slave_mcu,
       continue;
     }
 
-        if ((strlen(input) > 0) && (input[strlen(input) - 1] == '\n')) {
+    if ((strlen(input) > 0) && (input[strlen(input) - 1] == '\n')) {
       input[strlen(input) - 1] = '\0'; /* Strip newline. */
     }
 

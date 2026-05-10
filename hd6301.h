@@ -36,6 +36,7 @@ typedef struct hd6301_s {
   int id; /* Identification (used in trace) */
 
   /* Flags used for read notification then clearing: */
+  bool tcsr_tof_flag;
   bool tcsr_ocf_flag;
   bool tcsr_icf_flag;
   bool trcsr_orfe_flag;
@@ -131,7 +132,7 @@ void hd6301_trace_dump(FILE *fh, int cpu_id);
 void hd6301_dump(FILE *fh, hd6301_t *cpu);
 
 void hd6301_reset(hd6301_t *cpu, mem_t *mem, int id);
-void hd6301_execute(hd6301_t *cpu, mem_t *mem);
+void hd6301_execute(hd6301_t *cpu, mem_t *mem, int sleep_cycles);
 void hd6301_register_write(hd6301_t *cpu, mem_t *mem,
   uint16_t address, uint8_t value);
 void hd6301_register_read_notify(hd6301_t *cpu, mem_t *mem, uint16_t address);

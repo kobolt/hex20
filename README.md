@@ -3,7 +3,7 @@ Epson HX-20 Emulator
 
 This software attempts to emulate the [Epson HX-20](https://en.wikipedia.org/wiki/Epson_HX-20) portable computer in a Linux terminal.
 
-Features:
+## Features:
 * Auto-loading and running of BASIC program text files through automatic key input.
 * Dual HD6301 CPU setup supporting almost all instructions.
 * LCD panel emulated as '#' pixels using curses in a large 120x32 terminal window.
@@ -25,18 +25,20 @@ Features:
 * Redirect of "high speed" 38400 baud serial line to real TTY on host.
 * Micro-printer emulation by printing dots to a specified file.
 
-Known issues and missing features:
+## Known issues and missing features:
 * No TF-20 floppy emulation.
 * No micro-cassette emulation.
 * DAA, SWI and WAI CPU instructions are not implemented.
 * RS-232 does not emulate handshaking signals and RX is hardcoded to 1200 baud.
+* Trap IRQ not generated on faulty opcodes.
+* Free Running Counter (FRC) cannot be reset.
 
-Tips:
+## Tips:
 * Use Ctrl+C to enter the debugger, then enter the 'q' command to quit the emulator.
 * F9 is mapped to the "BREAK" key, used to break running BASIC programs.
 * F8 is mapped to the "MENU" key, to get back to the HX-20 main menu.
 
-Screenshot of the 120x32 pixel LCD emulation:
+## Screenshot of the 120x32 pixel LCD emulation:
 ```
  ###  ##### ####  #            ###         ###          #     #     #          ##     #
 #   #   #   #   # #         # #   #         #                 #                 #
@@ -63,7 +65,7 @@ Screenshot of the 120x32 pixel LCD emulation:
 #####       ####  #   #  ###   ###   ###
 ```
 
-ROM information and checksums:
+## ROM information and checksums:
 | Filename    | Version | CRC32    | MD5                              |
 |-------------|---------|----------|----------------------------------|
 | basic1.rom  | 1.0     | 33fbb1ab | 6b7541f35820ce50cc375e1fda39dfd9 |
@@ -76,17 +78,26 @@ ROM information and checksums:
 | utility.rom | 1.1     | 26c203a1 | 3d46c1cd4bc95ebf3d486499aadfd009 |
 | slave.rom   | N/A     | b36f5b99 | 51053c9c726edeef95d2debba8649f0c |
 
-Information on my blog:
+## Information on my blog:
 * [Epson HX-20 Emulator](https://kobolt.github.io/article-203.html)
 * [Epson HX-20 Emulator Sound Support](https://kobolt.github.io/article-214.html)
 * [Epson HX-20 Emulator External Cassette Support](https://kobolt.github.io/article-218.html)
 * [Epson HX-20 Video Player](https://kobolt.github.io/article-220.html)
 * [Epson HX-20 Emulator MinGW Build](https://kobolt.github.io/article-223.html)
 
-YouTube videos:
+## YouTube videos:
 * [Pick a Match](https://www.youtube.com/watch?v=dpQw2QPLM_Q)
 * [Minesweeper](https://www.youtube.com/watch?v=atJrgReYC5I)
 * [Artillery](https://www.youtube.com/watch?v=u1FT2iOwCAQ)
 * [Attack of the Sine Wave from Outer Space](https://www.youtube.com/watch?v=q-rid6iUhw8)
 * [Data Transfer](https://www.youtube.com/watch?v=No1LgJNcGDE)
+
+## Version history:
+* 0.1 - Initial version.
+* 0.2 - Sound emulation added.
+* 0.3 - External cassette emulation added.
+* 0.4 - High speed serial emulation added.
+* 0.5 - MinGW build support added.
+* 0.6 - Micro-printer emulation added.
+* 0.7 - Improved sound and reverse video.
 

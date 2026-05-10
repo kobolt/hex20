@@ -199,10 +199,12 @@ static void display_help(const char *progname)
     "  %d   None/Disable.\n"
     "  %d   Curses with ASCII. (20x4)\n"
     "  %d   Curses with '#' pixels. (120x32)\n"
+    "  %d   Curses with reverse video pixels. (120x32)\n"
     "\n",
     CONSOLE_MODE_NONE,
     CONSOLE_MODE_CURSES_ASCII,
-    CONSOLE_MODE_CURSES_PIXEL);
+    CONSOLE_MODE_CURSES_PIXEL,
+    CONSOLE_MODE_CURSES_REVERSE);
   fprintf(stdout, "Languages: US, FR, DE, GB, DK, SE, IT, ES\n\n");
   fprintf(stdout,
     "Using Ctrl+C will break into debugger, use 'q' from there to quit.\n\n");
@@ -336,13 +338,11 @@ int main(int argc, char *argv[])
   signal(SIGINT, sig_handler);
 
 #ifdef PIEZO_AUDIO_ENABLE
-  if (! disable_audio) {
-    if (piezo_init() != 0) {
-      fprintf(stdout, "Piezo speaker initialization failed!\n");
-      return EXIT_FAILURE;
-    }
+  if (piezo_init(disable_audio) != 0) {
+    fprintf(stdout, "Piezo speaker initialization failed!\n");
+    return EXIT_FAILURE;
   }
-#endif
+#endif /* PIEZO_AUDIO_ENABLE */
 
   if (ram_expansion) {
     if (option_rom) {
@@ -411,6 +411,9 @@ int main(int argc, char *argv[])
   hd6301_reset(&master_mcu, &master_mem, 0);
   hd6301_reset(&slave_mcu, &slave_mem, 1);
 
+#ifdef PIEZO_AUDIO_ENABLE
+  /* Let audio control the speed of the emulator. */
+#else
   /* Setup timer to relax CPU: */
 #ifdef WIN32
   HANDLE timer = NULL;
@@ -436,6 +439,7 @@ int main(int argc, char *argv[])
   signal(SIGALRM, sig_handler);
   setitimer(ITIMER_REAL, &new, NULL);
 #endif /* WIN32 */
+#endif /* PIEZO_AUDIO_ENABLE */
 
   if (autoload == AUTOLOAD_BASIC_FILE || autoload == AUTOLOAD_SREC_NEXT) {
     /* Always enable warp mode for faster loading: */
@@ -455,8 +459,8 @@ int main(int argc, char *argv[])
   }
 
   while (1) {
-    hd6301_execute(&master_mcu, &master_mem);
-    hd6301_execute(&slave_mcu, &slave_mem);
+    hd6301_execute(&master_mcu, &master_mem, 1);
+    hd6301_execute(&slave_mcu, &slave_mem, 3);
 
     if (master_mem.ram[HD6301_REG_PORT_2] & 0x4) {
       /* SCI transfer from master MCU to slave MCU: */
@@ -486,7 +490,9 @@ int main(int argc, char *argv[])
 
     rs232_execute(&master_mcu, &master_mem, &slave_mcu, &slave_mem);
 #ifdef PIEZO_AUDIO_ENABLE
-    piezo_execute(&slave_mcu, &slave_mem);
+    if (! warp_mode) {
+      piezo_execute(&slave_mcu, &slave_mem);
+    }
 #endif /* PIEZO_AUDIO_ENABLE */
     console_execute(&master_mcu, &master_mem);
     cassette_execute(&slave_mcu, &slave_mem);
@@ -574,6 +580,9 @@ int main(int argc, char *argv[])
       }
     }
 
+#ifdef PIEZO_AUDIO_ENABLE
+    /* Let audio playback control the speed of the emulator. */
+#else
     /* Sleep: */
     if (! warp_mode) {
       if (master_mcu.sync_counter > 8192) {
@@ -589,6 +598,7 @@ int main(int argc, char *argv[])
 #endif /* WIN32 */
       }
     }
+#endif /* PIEZO_AUDIO_ENABLE */
   }
   return EXIT_SUCCESS;
 }

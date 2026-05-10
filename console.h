@@ -7,9 +7,10 @@
 #include "mem.h"
 
 typedef enum {
-  CONSOLE_MODE_NONE         = 1,
-  CONSOLE_MODE_CURSES_ASCII = 2,
-  CONSOLE_MODE_CURSES_PIXEL = 3,
+  CONSOLE_MODE_NONE           = 1,
+  CONSOLE_MODE_CURSES_ASCII   = 2,
+  CONSOLE_MODE_CURSES_PIXEL   = 3,
+  CONSOLE_MODE_CURSES_REVERSE = 4,
 } console_mode_t;
 
 typedef enum {
