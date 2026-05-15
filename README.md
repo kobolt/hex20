@@ -84,6 +84,8 @@ This software attempts to emulate the [Epson HX-20](https://en.wikipedia.org/wik
 * [Epson HX-20 Emulator External Cassette Support](https://kobolt.github.io/article-218.html)
 * [Epson HX-20 Video Player](https://kobolt.github.io/article-220.html)
 * [Epson HX-20 Emulator MinGW Build](https://kobolt.github.io/article-223.html)
+* [Epson HX-20 Emulator Micro-Printer Support](https://kobolt.github.io/article-231.html)
+* [Epson HX-20 Emulator Improved Sound](https://kobolt.github.io/article-276.html)
 
 ## YouTube videos:
 * [Pick a Match](https://www.youtube.com/watch?v=dpQw2QPLM_Q)
@@ -91,6 +93,7 @@ This software attempts to emulate the [Epson HX-20](https://en.wikipedia.org/wik
 * [Artillery](https://www.youtube.com/watch?v=u1FT2iOwCAQ)
 * [Attack of the Sine Wave from Outer Space](https://www.youtube.com/watch?v=q-rid6iUhw8)
 * [Data Transfer](https://www.youtube.com/watch?v=No1LgJNcGDE)
+* [Graphics Printing](https://www.youtube.com/watch?v=PsOogYpkR-o)
 
 ## Version history:
 * 0.1 - Initial version.
